@@ -51,11 +51,8 @@ def calcular_coeficientes_compactos(an, bn):
 # Função principal
 for sinal_func, nome_sinal in zip(sinais, nomes_sinais):
     x_t = sinal_func(t)
-    
-    fig, axs = plt.subplots(1, 2, figsize=(14, 6))  # Gráficos lado a lado
-    fig.suptitle(f'Reconstrução de {nome_sinal}', fontsize=16)
-    axs[0].plot(t, x_t, label='Sinal Original', linestyle='--', color='blue', linewidth=2)
 
+    # Gráfico do sinal original, reconstruído e espectro
     for N_termos in n_values:
         # Calcular os coeficientes de Fourier
         a0, an, bn = calcular_coeficientes_fourier(x_t, T, N_termos)
@@ -81,22 +78,24 @@ for sinal_func, nome_sinal in zip(sinais, nomes_sinais):
         for n in range(1, N_termos + 1):
             x_reconstruido += an[n-1] * np.cos(2 * np.pi * n * t / T) + bn[n-1] * np.sin(2 * np.pi * n * t / T)
 
-        # Plotar o sinal reconstruído
+        # Plotar o sinal original e reconstruído, junto com o espectro
+        fig, axs = plt.subplots(1, 2, figsize=(14, 6))  # Gráficos lado a lado
+        
+        # Sinal original e reconstruído
+        axs[0].plot(t, x_t, label='Sinal Original', linestyle='--', color='blue', linewidth=2)
         axs[0].plot(t, x_reconstruido, label=f'{N_termos} Termos')
+        axs[0].set_xlabel('Tempo (s)', fontsize=14)
+        axs[0].set_ylabel('Amplitude', fontsize=14)
+        axs[0].set_title(f'Reconstrução de {nome_sinal} com {N_termos} Termos')
+        axs[0].legend(loc='upper right', fontsize=12)
 
-    # Configurar o gráfico do sinal
-    axs[0].set_xlabel('Tempo (s)', fontsize=14)
-    axs[0].set_ylabel('Amplitude', fontsize=14)
-    axs[0].legend(loc='upper right', fontsize=12)
-    
-    # Plotar o espectro da série compacta
-    freqs = np.arange(1, len(Cn) + 1) / T
-    axs[1].stem(freqs, Cn, basefmt=" ", linefmt='purple')
-    axs[1].set_xlim(0, f_max)
-    axs[1].set_xlabel('Frequência (Hz)')
-    axs[1].set_ylabel('|C_n|')
-    axs[1].set_title('Espectro da Série de Fourier Compacta')
+        # Espectro da série compacta
+        freqs = np.arange(1, len(Cn) + 1) / T
+        axs[1].stem(freqs, Cn, basefmt=" ", linefmt='purple')
+        axs[1].set_xlim(0, f_max)
+        axs[1].set_xlabel('Frequência (Hz)')
+        axs[1].set_ylabel('|C_n|')
+        axs[1].set_title(f'Espectro da Série de Fourier Compacta para {nome_sinal}')
 
-    # Ajustes de layout e exibição do gráfico
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.show()
+        plt.tight_layout()
+        plt.show()
