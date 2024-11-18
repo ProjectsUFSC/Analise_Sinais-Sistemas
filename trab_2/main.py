@@ -10,52 +10,72 @@ funcoes_transferencia = [
     ([1, 0, 0, 0], [1, 37.7, 710.6, 6690]),  # H(s) = s^3 / (s^3 + 37.7s^2 + 710.6s + 6690)
     ([626126, 0], [1, 626126, 394784176]),  # H(s) = 626126s / (s^2 + 626126s + 394784176)
     ([1, 0, 395477191], [1, 625900, 395477191]),  # H(s) = (s^2 + 395477191) / (s^2 + 625900s + 395477191)
-    (np.convolve([1, 0, 142129], [1, 0, 142129]), np.convolve([1, 38, 142129], [1, 38, 142129]))  # H(s) = (s^2 + 142129 / (s^2 + 38s + 142129))^3
+    (np.convolve([1, 0, 142129], [1, 0, 142129]), np.convolve([1, 38, 142129], [1, 38, 142129]))  # H(s) = ((s^2 + 142129) / (s^2 + 38s + 142129))^3
 ]
 
 # Faixa de frequência para os diagramas de Bode
 w = np.logspace(0, 6, 1000)
 
-# Função auxiliar para exibir H(s) em notação legível
-def formatar_polinomio(coef):
-    termos = [f"{a}*s^{len(coef)-i-1}" if i < len(coef)-1 else f"{a}" for i, a in enumerate(coef) if a != 0]
-    return " + ".join(termos).replace("s^1", "s").replace("*s^0", "").replace(" 1*", " ")
+# Função para encontrar frequências de corte (-3 dB)
+def encontrar_freq_corte(w, mag, ganho_corte):
+    indices = np.where(np.diff(np.sign(mag - ganho_corte)) != 0)[0]
+    freq_corte = []
+    for idx in indices:
+        # Interpolação linear para estimar a frequência de corte
+        w1, w2 = w[idx], w[idx+1]
+        m1, m2 = mag[idx], mag[idx+1]
+        if m2 != m1:  # Evitar divisão por zero
+            wc = w1 + (ganho_corte - m1) * (w2 - w1) / (m2 - m1)
+            freq_corte.append(wc)
+    return freq_corte
 
 for idx, (num, den) in enumerate(funcoes_transferencia):
     sistema = signal.TransferFunction(num, den)
     w, mag, phase = signal.bode(sistema, w)
 
-    # Determina o tipo de filtro com base nos graus do numerador e denominador
-    tipo_filtro = "Passa-baixa" if len(den) > len(num) else ("Passa-alta" if len(num) > len(den) else "Passa-banda")
-    ganho_linear = num[0] / den[0] if tipo_filtro != "Passa-banda" else num[0] / den[0]
-    ganho_db = 20 * np.log10(ganho_linear)
-
-    # Calcula a frequência de corte para filtros passa-baixa e passa-alta
-    if tipo_filtro == "Passa-baixa":
-        freq_corte = den[-1]
-    elif tipo_filtro == "Passa-alta":
-        freq_corte = num[-1]
+    # Determina o tipo de filtro
+    if len(den) > len(num):
+        tipo_filtro = "Filtro Passa-Baixas"
+    elif len(num) > len(den):
+        tipo_filtro = "Filtro Passa-Altas"
     else:
-        freq_corte = [den[-1], num[-1]]  # Para passa-banda, duas frequências de corte
-    
-    # Exibir informações sobre o filtro
-    print(f"\nFunção H(s) {idx + 1}: {formatar_polinomio(num)} / ({formatar_polinomio(den)})")
-    print(f"Tipo de Filtro: {tipo_filtro}")
-    print(f"Frequência(s) de Corte: {freq_corte} rad/s")
-    print(f"Ganho em dB: {ganho_db:.2f} dB")
+        tipo_filtro = "Filtro Passa-Banda"
+
+    # Identificar frequências de corte (-3 dB abaixo do ganho máximo)
+    ganho_max = max(mag)
+    ganho_corte = ganho_max - 3  # -3 dB
+    freq_cortes = encontrar_freq_corte(w, mag, ganho_corte)
 
     # Plotar magnitude e fase do diagrama de Bode
     plt.figure(figsize=(10, 6))
+
+    # Magnitude
     plt.subplot(2, 1, 1)
-    plt.semilogx(w, mag)
-    plt.title(f'Diagrama de Bode - Função H(s) {idx + 1}')
+    plt.semilogx(w, mag, color='navy', label='Magnitude')
+    # Plotar linhas de frequência de corte
+    for fc in freq_cortes:
+        idx_fc = np.argmin(np.abs(w - fc))
+        # Linha horizontal até a frequência de corte
+        plt.semilogx(w[:idx_fc+1], [ganho_corte]*(idx_fc+1), color='orange', linestyle='--')
+        # Linha vertical até o ponto de corte
+        plt.semilogx([fc, fc], [min(mag), ganho_corte], color='orange', linestyle='--')
+        # Marcar o ponto de corte
+        plt.scatter([fc], [ganho_corte], color='orange', zorder=5)
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+    plt.title(f"H(s) {idx + 1}")
     plt.xlabel('Frequência [rad/s]')
     plt.ylabel('Magnitude [dB]')
+    # Adicionar legendas
+    plt.legend(['Magnitude', f'Frequência(s) de Corte: {[f"{fc:.2f}" for fc in freq_cortes]} rad/s', f"{tipo_filtro}", f"Ganho de Corte: {ganho_corte:.2f} dB"])
 
+    # Fase
     plt.subplot(2, 1, 2)
-    plt.semilogx(w, phase)
+    plt.semilogx(w, phase, color='green', label='Fase')
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.xlabel('Frequência [rad/s]')
     plt.ylabel('Fase [graus]')
+    plt.legend()
 
     plt.tight_layout()
     plt.show()
+
