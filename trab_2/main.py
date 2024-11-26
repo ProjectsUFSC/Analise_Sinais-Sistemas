@@ -13,6 +13,17 @@ funcoes_transferencia = [
     (np.convolve([1, 0, 142129], [1, 0, 142129]), np.convolve([1, 38, 142129], [1, 38, 142129]))  # H(s) = ((s^2 + 142129) / (s^2 + 38s + 142129))^3
 ]
 
+# Lista dos tipos de filtros fornecidos
+tipo_filtros = [
+    "Filtro Passa-Baixas",    # sinal 1
+    "Filtro Passa-Baixas",    # sinal 2
+    "Filtro Passa-Altas",     # sinal 3
+    "Filtro Passa-Altas",     # sinal 4
+    "Filtro Passa-Faixa",     # sinal 5
+    "Filtro Rejeita-Faixa",   # sinal 6
+    "Filtro Rejeita-Faixa"    # sinal 7
+]
+
 # Faixa de frequência para os diagramas de Bode
 w = np.logspace(0, 6, 1000)
 
@@ -32,50 +43,46 @@ def encontrar_freq_corte(w, mag, ganho_corte):
 for idx, (num, den) in enumerate(funcoes_transferencia):
     sistema = signal.TransferFunction(num, den)
     w, mag, phase = signal.bode(sistema, w)
+    f = w / (2 * np.pi)  # Converter frequência para Hz
 
-    # Determina o tipo de filtro
-    if len(den) > len(num):
-        tipo_filtro = "Filtro Passa-Baixas"
-    elif len(num) > len(den):
-        tipo_filtro = "Filtro Passa-Altas"
-    else:
-        tipo_filtro = "Filtro Passa-Banda"
+    # Obter o tipo de filtro a partir do cabarito
+    tipo_filtro = tipo_filtros[idx]
 
     # Identificar frequências de corte (-3 dB abaixo do ganho máximo)
     ganho_max = max(mag)
     ganho_corte = ganho_max - 3  # -3 dB
     freq_cortes = encontrar_freq_corte(w, mag, ganho_corte)
+    freq_cortes_hz = [fc / (2 * np.pi) for fc in freq_cortes]  # Converter para Hz
 
     # Plotar magnitude e fase do diagrama de Bode
     plt.figure(figsize=(10, 6))
 
     # Magnitude
     plt.subplot(2, 1, 1)
-    plt.semilogx(w, mag, color='navy', label='Magnitude')
+    plt.semilogx(f, mag, color='navy', label='Magnitude')
     # Plotar linhas de frequência de corte
-    for fc in freq_cortes:
-        idx_fc = np.argmin(np.abs(w - fc))
+    for fc in freq_cortes_hz:
+        idx_fc = np.argmin(np.abs(f - fc))
         # Linha horizontal até a frequência de corte
-        plt.semilogx(w[:idx_fc+1], [ganho_corte]*(idx_fc+1), color='orange', linestyle='--')
+        plt.semilogx(f[:idx_fc+1], [ganho_corte]*(idx_fc+1), color='orange', linestyle='--')
         # Linha vertical até o ponto de corte
         plt.semilogx([fc, fc], [min(mag), ganho_corte], color='orange', linestyle='--')
         # Marcar o ponto de corte
         plt.scatter([fc], [ganho_corte], color='orange', zorder=5)
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.title(f"H(s) {idx + 1}")
-    plt.xlabel('Frequência [rad/s]')
+    plt.xlabel('Frequência [Hz]')
     plt.ylabel('Magnitude [dB]')
     # Adicionar legendas
-    plt.legend(['Magnitude', f'Frequência(s) de Corte: {[f"{fc:.2f}" for fc in freq_cortes]} rad/s', f"{tipo_filtro}", f"Ganho de Corte: {ganho_corte:.2f} dB"])
+    plt.legend(['Magnitude', f'Frequência(s) de Corte: {[f"{fc:.2f}" for fc in freq_cortes_hz]} Hz', tipo_filtro, f"Ganho de Corte: {ganho_corte:.2f} dB"])
 
     # Fase
     plt.subplot(2, 1, 2)
-    plt.semilogx(w, phase, color='green', label='Fase')
+    plt.semilogx(f, phase, color='green', label='Fase')
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-    plt.xlabel('Frequência [rad/s]')
+    plt.xlabel('Frequência [Hz]')
     plt.ylabel('Fase [graus]')
     plt.legend()
 
     plt.tight_layout()
     plt.show()
-
